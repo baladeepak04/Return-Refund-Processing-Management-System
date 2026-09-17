@@ -1,0 +1,68 @@
+name: rrpms-final-project
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rrpms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: rrpms_db
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - rrpms_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres} -d rrpms_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # §2.1: "Redis for refund SLA tracking" — real container, actually used by
+  # RefundSlaTrackingService, not just present in the compose file for show.
+  redis:
+    image: redis:7-alpine
+    container_name: rrpms-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./rrpms-backend
+    container_name: rrpms-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/rrpms_db
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-change-this-to-a-long-random-secret-value-min-64-bytes-for-hs512-xxxxxxxxxxxxxxxxxxxxxxxxx}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8081}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./rrpms-frontend
+    container_name: rrpms-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8081:80"
+
+volumes:
+  rrpms_pgdata:

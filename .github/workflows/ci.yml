@@ -1,0 +1,95 @@
+name: RRPMS CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  backend-test:
+    name: Backend Test & Build (Spring Boot 3.3 / Java 17)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: rrpms_db
+          POSTGRES_USER: rrpms_user
+          POSTGRES_PASSWORD: rrpms_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build & Run Tests with Maven
+        working-directory: ./rrpms-backend
+        env:
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/rrpms_db
+          SPRING_DATASOURCE_USERNAME: rrpms_user
+          SPRING_DATASOURCE_PASSWORD: rrpms_password
+          SPRING_DATA_REDIS_HOST: localhost
+          SPRING_DATA_REDIS_PORT: 6379
+          JWT_SECRET: 0123456789012345678901234567890123456789012345678901234567890123
+        run: mvn clean test
+
+  frontend-build:
+    name: Frontend Build & Verification (Node 20 / Vite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: ./rrpms-frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: ./rrpms-frontend
+        run: npm ci
+
+      - name: Verify Frontend Production Build
+        working-directory: ./rrpms-frontend
+        run: npm run build
+
+  docker-compose-validate:
+    name: Docker Stack Configuration Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose Configuration
+        run: |
+          docker compose config -q
+          docker compose -f docker-compose.dev.yml config -q

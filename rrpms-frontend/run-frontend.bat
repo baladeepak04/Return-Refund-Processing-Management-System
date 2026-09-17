@@ -1,0 +1,3 @@
+@echo off
+echo Starting RRPMS Frontend (Vite Dev Server)...
+npm run dev

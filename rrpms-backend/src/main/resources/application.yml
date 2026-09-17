@@ -1,0 +1,46 @@
+server:
+  port: ${SERVER_PORT:8082}
+
+spring:
+  application:
+    name: rrpms-backend
+  datasource:
+    url: jdbc:postgresql://localhost:5432/rrpms_db
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  # §2.1: "Redis for refund SLA tracking" — real connection, used by
+  # RefundSlaTrackingService.
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  jpa:
+    hibernate:
+      # Flyway owns the schema; Hibernate's default @ElementCollection table/
+      # column naming can drift from a hand-written migration in ways that
+      # break `validate` on first boot, so this stays `none` rather than
+      # risking a false-negative startup failure.
+      ddl-auto: none
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-this-to-a-long-random-secret-value-min-64-bytes-for-hs512-xxxxxxxxxxxxxxxxxxxxxxxxx}
+    expiry-seconds: 3600
+  encryption:
+    # AES-256 key for bank-detail encryption at rest (Appendix D). Base64 of
+    # exactly 32 bytes. Dev-only default — override via ENCRYPTION_SECRET in
+    # any real deployment, same as JWT_SECRET.
+    secret: ${ENCRYPTION_SECRET:cnJwbXMtZGV2LWFlczI1Ni1rZXktMzJieXRlcyEhISE=}
+  cors:
+    allowed-origins: ${CORS_ORIGIN:http://localhost:5173}
+
+logging:
+  level:
+    com.returnflow.rrpms: INFO
