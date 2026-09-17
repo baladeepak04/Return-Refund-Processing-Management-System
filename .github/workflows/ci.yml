@@ -92,4 +92,4 @@ jobs:
       - name: Validate Docker Compose Configuration
         run: |
           docker compose config -q
-          docker compose -f docker-compose.dev.yml config -q
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml config -q
