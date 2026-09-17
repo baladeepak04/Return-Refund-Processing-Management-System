@@ -24,6 +24,9 @@ target/
 *.sw?
 .DS_Store
 Thumbs.db
+.project
+.classpath
+.settings/
 
 # Logs & Runtime
 *.log
